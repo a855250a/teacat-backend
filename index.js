@@ -65,7 +65,7 @@ app.post("/login", async (req, res) => {
     // 產生 JWT Token
     const token = jwt.sign(
         { userID: user._id},
-        "TEA_CAT_SHOP_SECRET",
+        process.env.JWT_SECRET //"TEA_CAT_SHOP_SECRET",
         { expiresIn: "7d" }
     );
 
@@ -77,14 +77,14 @@ app.post("/login", async (req, res) => {
 });
 
 function verifyToken(req, res, next) {
-    const token = req.headers.authorization?.split("")[1];
+    const token = req.headers.authorization?.split(" ")[1];
 
     if (!token){
         return res.json({ success: false,message:" 未提供 Token"});
     }
 
     try {
-        const decoded = jwt.verify(token, "TEA_CAT_SHOP_SECRET");
+        const decoded = jwt.verify(token, "process.env.JWT_SECRET");//"TEA_CAT_SHOP_SECRET");
         req.user = decoded;  // 把 userId 放入 req.user
         next();
     } catch (err) {

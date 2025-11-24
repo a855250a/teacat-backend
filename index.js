@@ -77,18 +77,20 @@ app.post("/login", async (req, res) => {
 });
 
 function verifyToken(req, res, next) {
-    const token = req.headers.authorization?.split(" ")[1];
+    const authHeader = req.headers.authorization;
 
-    if (!token){
-        return res.json({ success: false,message:" 未提供 Token"});
+    if (!authHeader) {
+        return res.json({ success: false, message: "未提供 Token" });
     }
 
+    const token = authHeader.split(" ")[1]; // 正確的 Bearer token 取得方式
+
     try {
-        const decoded = jwt.verify(token, "process.env.JWT_SECRET");//"TEA_CAT_SHOP_SECRET");
-        req.user = decoded;  // 把 userId 放入 req.user
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        req.user = decoded;
         next();
     } catch (err) {
-        return res.json({ success: false, message: "Token 無效，請重新登入"});    
+        return res.json({ success: false, message: "Token 無效，請重新登入" });
     }
 }
 

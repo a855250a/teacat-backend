@@ -8,7 +8,7 @@ const jwt = require("jsonwebtoken") //登入後發 token
 const User = require("./models/User"); //建立的 User model（要匯入）
 
 // 2. 連線到 MongoDB
-mongoose.connect("mongodb://127.0.0.1:27017/teacat-shop")
+mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log("MongoDB Connetced"))
     .catch((err) => console.log(err));
 

@@ -65,7 +65,7 @@ app.post("/login", async (req, res) => {
     // 產生 JWT Token
     const token = jwt.sign(
         { userID: user._id},
-        process.env.JWT_SECRET //"TEA_CAT_SHOP_SECRET",
+        process.env.JWT_SECRET,  // 用環境變數當作密鑰
         { expiresIn: "7d" }
     );
 

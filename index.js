@@ -6,6 +6,7 @@ const bcrypt = require("bcrypt"); //密碼加密
 const jwt = require("jsonwebtoken") //登入後發 token
 
 const User = require("./models/User"); //建立的 User model（要匯入）
+const Product = require("./models/Product");
 
 // 2. 連線到 MongoDB
 mongoose.connect(process.env.MONGO_URI)
@@ -76,6 +77,43 @@ app.post("/login", async (req, res) => {
     });
 });
 
+// 取得全部商品
+app.get("/products", async (req, res) => {
+  try {
+    const products = await Product.find().sort({ createdAt: -1 }); // 新的在前面
+    res.json({ success: true, products });
+  } catch (err) {
+    res.json({ success: false, message: "取得商品失敗", error: err.message });
+  }
+});
+
+// 新增商品
+app.post("/products", async (req, res) => {
+  try {
+    const { name, price, category, img, description, stock } = req.body;
+
+    if (!name || !price || !category || !img) {
+      return res.json({ success: false, message: "缺少必要欄位" });
+    }
+
+    const product = new Product({
+      name,
+      price,
+      category,
+      img,
+      description,
+      stock: stock || 0
+    });
+
+    await product.save();
+
+    res.json({ success: true, message: "商品新增成功", product });
+  } catch (err) {
+    res.json({ success: false, message: "新增商品失敗", error: err.message });
+  }
+});
+
+
 function verifyToken(req, res, next) {
     const authHeader = req.headers.authorization;
 
@@ -94,7 +132,9 @@ function verifyToken(req, res, next) {
     }
 }
 
-app.listen(3000, "0.0.0.0", () => console.log("Server running"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Server running on PORT " + PORT));
+
 
 
 //如本地端綁定在開啟

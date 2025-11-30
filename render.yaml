@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: teacat-backend
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: "npm install"
+    startCommand: "node index.js"
+    envVars:
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false

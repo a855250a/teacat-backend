@@ -1,149 +1,157 @@
+// ================================
 // 1. 引入套件
-const express = require("express"); //讓你建立後端伺服器
-const mongoose = require("mongoose"); //連接 MongoDB
-const cors = require("cors"); //讓前端能打 API
-const bcrypt = require("bcrypt"); //密碼加密
-const jwt = require("jsonwebtoken") //登入後發 token
+// ================================
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
 
-const User = require("./models/User"); //建立的 User model（要匯入）
+// Models
+const Admin = require("./models/Admin");
+const User = require("./models/User");
 const Product = require("./models/Product");
 
-// 2. 連線到 MongoDB
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log("MongoDB Connetced"))
-    .catch((err) => console.log(err));
+// ================================
+// 2. 連線 MongoDB
+// ================================
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB Connected"))
+  .catch((err) => console.log(err));
 
+// ================================
+// 3. 建立 Express
+// ================================
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 3. 註冊 API
-app.post("/register", async (req, res) =>{
-    const{ name, email, password} = req.body;
+// ================================
+// 4. 建立後台帳號（多組皆可）
+// ================================
+app.post("/admin/create", async (req, res) => {
+  const { username, password } = req.body;
 
-    if (!name || !email || !password) {
-        return res.json({ success: false, message:"缺少欄位"});
-    }
-    const existingUser = await User.findOne({ email});
-// 檢查 email 是否已存在
-    if (existingUser) {
-        return res.json({ success: false, message: "Email 已被註冊"});
-    }
-// 加密密碼
-    const hashedPassword = await bcrypt.hash(password, 10);
-// 建立新使用者
-    const newUser = new User({
-        name,
-        email,
-        password: hashedPassword
-    });
-// 存進資料庫
-    await newUser.save()
+  if (!username || !password)
+    return res.json({ success: false, message: "缺少欄位" });
 
-    return res.json({ success:true, message: "註冊成功"});
+  const exist = await Admin.findOne({ username });
+  if (exist)
+    return res.json({ success: false, message: "此帳號已存在" });
+
+  const hashed = await bcrypt.hash(password, 10);
+
+  const newAdmin = new Admin({
+    username,
+    password: hashed,
+  });
+
+  await newAdmin.save();
+  res.json({ success: true, message: "管理員建立成功" });
 });
 
+// ================================
+// 5. 後台登入 API
+// ================================
+app.post("/admin/login", async (req, res) => {
+  const { username, password } = req.body;
+
+  const admin = await Admin.findOne({ username });
+  if (!admin)
+    return res.json({ success: false, message: "帳號或密碼錯誤" });
+
+  const isMatch = await bcrypt.compare(password, admin.password);
+  if (!isMatch)
+    return res.json({ success: false, message: "帳號或密碼錯誤" });
+
+  const token = jwt.sign(
+    { adminID: admin._id, role: "admin" },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
+  res.json({ success: true, message: "後台登入成功", token });
+});
+
+// ================================
+// 6. 前台註冊
+// ================================
+app.post("/register", async (req, res) => {
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password)
+    return res.json({ success: false, message: "缺少欄位" });
+
+  const exist = await User.findOne({ email });
+  if (exist)
+    return res.json({ success: false, message: "Email 已被註冊" });
+
+  const hashed = await bcrypt.hash(password, 10);
+
+  await new User({ name, email, password: hashed }).save();
+
+  res.json({ success: true, message: "註冊成功" });
+});
+
+// ================================
+// 7. 前台登入
+// ================================
 app.post("/login", async (req, res) => {
-    const{ email, password} = req.body;
+  const { email, password } = req.body;
 
-    // 檢查欄位
-    if (!email || !password) {
-        return res.json({ success: false, message: "缺少欄位"});
-    }
+  const user = await User.findOne({ email });
+  if (!user)
+    return res.json({ success: false, message: "帳號或密碼錯誤" });
 
-    // 找尋用戶
-    const user = await User.findOne({ email });
-    if (!user) {
-        return res.json({ success: false, message: "帳號或密碼錯誤"});
-    }
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch)
+    return res.json({ success: false, message: "帳號或密碼錯誤" });
 
-    // 比對密碼
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-        return res.json({ success: false, message: "帳號或密碼錯誤"});
-    }
+  const token = jwt.sign(
+    { userID: user._id },
+    process.env.JWT_SECRET,
+    { expiresIn: "7d" }
+  );
 
-    // 產生 JWT Token
-    const token = jwt.sign(
-        { userID: user._id},
-        process.env.JWT_SECRET,  // 用環境變數當作密鑰
-        { expiresIn: "7d" }
-    );
-
-    return res.json({
-        success: true,
-        message: "登入成功",
-        token
-    });
+  res.json({ success: true, message: "登入成功", token });
 });
 
-// 取得全部商品
-app.get("/products", async (req, res) => {
-  try {
-    const products = await Product.find().sort({ createdAt: -1 }); // 新的在前面
-    res.json({ success: true, products });
-  } catch (err) {
-    res.json({ success: false, message: "取得商品失敗", error: err.message });
-  }
-});
-
-// 新增商品
+// ================================
+// 8. 新增商品
+// ================================
 app.post("/products", async (req, res) => {
-  try {
-    const { name, price, category, img, description, stock } = req.body;
+  const { name, price, category, img, description, stock } = req.body;
 
-    if (!name || !price || !category || !img) {
-      return res.json({ success: false, message: "缺少必要欄位" });
-    }
+  if (!name || !price || !category || !img)
+    return res.json({ success: false, message: "缺少欄位" });
 
-    const product = new Product({
-      name,
-      price,
-      category,
-      img,
-      description,
-      stock: stock || 0
-    });
+  const product = new Product({
+    name,
+    price,
+    category,
+    img,
+    description,
+    stock: stock || 0,
+  });
 
-    await product.save();
-
-    res.json({ success: true, message: "商品新增成功", product });
-  } catch (err) {
-    res.json({ success: false, message: "新增商品失敗", error: err.message });
-  }
+  await product.save();
+  res.json({ success: true, message: "商品新增成功", product });
 });
 
+// ================================
+// 9. 取得全部商品
+// ================================
+app.get("/products", async (req, res) => {
+  const products = await Product.find().sort({ createdAt: -1 });
+  res.json({ success: true, products });
+});
 
-function verifyToken(req, res, next) {
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader) {
-        return res.json({ success: false, message: "未提供 Token" });
-    }
-
-    const token = authHeader.split(" ")[1]; // 正確的 Bearer token 取得方式
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (err) {
-        return res.json({ success: false, message: "Token 無效，請重新登入" });
-    }
-}
-
+// ================================
+// 10. 啟動伺服器（最後一行）
+// ================================
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("Server running on PORT " + PORT));
-
-
-
-//如本地端綁定在開啟
-// app.listen(3000, () => {
-//     console.log("Server running on port 3000");
-// });
-
-
-// app.get("/profile", verifyToken, async (req, res) => {
-//     const user = await User.findById(req.user.userId);
-//     res.json({ success: true, user });
-// });
+app.listen(PORT, () =>
+  console.log("Server running on PORT " + PORT)
+);

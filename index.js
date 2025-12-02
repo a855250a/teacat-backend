@@ -148,6 +148,27 @@ app.get("/products", async (req, res) => {
   res.json({ success: true, products });
 });
 
+// 取得所有後台管理者
+app.get("/admin/all", async (req, res) => {
+    try {
+        const admins = await Admin.find().select("-password"); // 不顯示密碼
+        res.json({ success: true, admins });
+    } catch (err) {
+        res.json({ success: false, message: "取得管理者失敗" });
+    }
+});
+
+
+// 刪除管理者
+app.delete("/admin/delete/:id", async (req, res) => {
+    const { id } = req.params;
+
+    await Admin.findByIdAndDelete(id);
+    res.json({ success: true, message: "管理者已刪除" });
+});
+
+
+
 // ================================
 // 10. 啟動伺服器（最後一行）
 // ================================
